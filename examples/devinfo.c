@@ -208,6 +208,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
 	struct ibv_device_attr device_attr;
+	struct ibv_device_attr_ex attrx;
 	struct ibv_port_attr port_attr;
 	int rc = 0;
 	uint8_t port;
@@ -219,11 +220,18 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		rc = 1;
 		goto cleanup;
 	}
-	if (ibv_query_device(ctx, &device_attr)) {
-		fprintf(stderr, "Failed to query device props\n");
-		rc = 2;
-		goto cleanup;
+
+	if (ibv_query_device_ex(ctx, &attrx)) {
+		attrx.comp_mask = 0;
+		if (ibv_query_device(ctx, &device_attr)) {
+			fprintf(stderr, "Failed to query device props\n");
+			rc = 2;
+			goto cleanup;
+		}
+	} else {
+		device_attr = attrx.orig_attr;
 	}
+
 	if (ib_port && ib_port > device_attr.phys_port_cnt) {
 		fprintf(stderr, "Invalid port requested for device\n");
 		/* rc = 3 is taken by failure to clean up */

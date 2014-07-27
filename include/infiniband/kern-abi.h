@@ -101,12 +101,20 @@ enum {
 
 #define IB_USER_VERBS_CMD_FLAG_EXTENDED		0x80ul
 
+/* use this mask for creating extended commands that
+   correspond to old commands */
+#define IB_USER_VERBS_CMD_EXTENDED_MASK \
+	(IB_USER_VERBS_CMD_FLAG_EXTENDED << \
+	 IB_USER_VERBS_CMD_FLAGS_SHIFT)
+
 
 enum {
 	IB_USER_VERBS_CMD_CREATE_FLOW = (IB_USER_VERBS_CMD_FLAG_EXTENDED <<
 					 IB_USER_VERBS_CMD_FLAGS_SHIFT) +
 					IB_USER_VERBS_CMD_THRESHOLD,
-	IB_USER_VERBS_CMD_DESTROY_FLOW
+	IB_USER_VERBS_CMD_DESTROY_FLOW,
+	IB_USER_VERBS_CMD_QUERY_DEVICE_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+						IB_USER_VERBS_CMD_QUERY_DEVICE,
 };
 
 /*
@@ -238,6 +246,19 @@ struct ibv_query_device_resp {
 	__u8  local_ca_ack_delay;
 	__u8  phys_port_cnt;
 	__u8  reserved[4];
+};
+
+struct ibv_query_device_ex {
+	struct ex_hdr	hdr;
+	__u32		comp_mask;
+	__u32		reserved;
+};
+
+struct ibv_query_device_resp_ex {
+	struct ibv_query_device_resp base;
+	__u32 comp_mask;
+	__u32 response_length;
+	__u64 reserved[3];
 };
 
 struct ibv_query_port {
@@ -1001,7 +1022,8 @@ enum {
 	IB_USER_VERBS_CMD_CREATE_XSRQ_V2 = -1,
 	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_FLOW_V2 = -1,
-	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1
+	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1,
+	IB_USER_VERBS_CMD_QUERY_DEVICE_EX_V2 = -1
 };
 
 struct ibv_modify_srq_v3 {

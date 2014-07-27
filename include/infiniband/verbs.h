@@ -168,6 +168,16 @@ struct ibv_device_attr {
 	uint8_t			phys_port_cnt;
 };
 
+struct ibv_device_attr_ex {
+	struct ibv_device_attr	orig_attr;
+	uint32_t		comp_mask;
+};
+
+struct ibv_device_attr_ex_resp {
+	struct ibv_device_attr	orig_attr;
+	uint32_t		comp_mask;
+};
+
 enum ibv_mtu {
 	IBV_MTU_256  = 1,
 	IBV_MTU_512  = 2,
@@ -971,6 +981,8 @@ struct verbs_context {
 	/*  "grows up" - new fields go here */
 	int (*poll_cq_ex)(struct ibv_cq *ibcq, int num_entries,
 			  struct ibv_wc_ex *wc, int wc_size);
+	int (*query_device_ex)(struct ibv_context *context,
+			       struct ibv_device_attr_ex *attr);
 	int (*drv_ibv_destroy_flow) (struct ibv_flow *flow);
 	int (*lib_ibv_destroy_flow) (struct ibv_flow *flow);
 	struct ibv_flow * (*drv_ibv_create_flow) (struct ibv_qp *qp,
@@ -1416,6 +1428,22 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_query_device_ex - Get extended device properties
+ */
+static inline int
+ibv_query_device_ex(struct ibv_context *context,
+		    struct ibv_device_attr_ex *attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, query_device_ex);
+	if (!vctx || !vctx->query_device_ex)
+		return -ENOSYS;
+
+	return vctx->query_device_ex(context, attr);
 }
 
 /**
