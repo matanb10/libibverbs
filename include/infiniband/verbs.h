@@ -376,9 +376,11 @@ enum ibv_wc_flags_ex {
 	IBV_WC_EX_WITH_SLID		= 1 << 7,
 	IBV_WC_EX_WITH_SL		= 1 << 8,
 	IBV_WC_EX_WITH_DLID_PATH_BITS	= 1 << 9,
+	IBV_WC_EX_WITH_TIMESTAMP	= 1 << 10,
 };
 
 /* fields order in wc_ex
+	uint64_t		timestamp;
 	uint32_t		byte_len,
 	uint32_t		imm_data;	// in network byte order
 	uint32_t		qp_num;
@@ -389,7 +391,7 @@ enum ibv_wc_flags_ex {
 	uint8_t			dlid_path_bits;
 */
 
-#define IBV_WC_EX_WITH_64BIT_FIELDS	0
+#define IBV_WC_EX_WITH_64BIT_FIELDS	(IBV_WC_EX_WITH_TIMESTAMP)
 #define IBV_WC_EX_WITH_32BIT_FIELDS	(IBV_WC_EX_WITH_BYTE_LEN |\
 					 IBV_WC_EX_WITH_IMM	|\
 					 IBV_WC_EX_WITH_QP_NUM   |\
@@ -1136,6 +1138,15 @@ struct ibv_context {
 	void		       *abi_compat;
 };
 
+enum ibv_create_cq_attr {
+	IBV_CREATE_CQ_ATTR_FLAGS	= 1 << 0,
+	IBV_CREATE_CQ_ATTR_RESERVED	= (1 << 1) - 1
+};
+
+enum ibv_create_cq_attr_flags {
+	IBV_CREATE_CQ_ATTR_COMPLETION_TIMESTAMP	= 1 << 0,
+};
+
 struct ibv_create_cq_attr_ex {
 	/* Minimum number of entries required for CQ */
 	int			cqe;
@@ -1155,6 +1166,10 @@ struct ibv_create_cq_attr_ex {
 	/* compatibility mask (extended verb). Or'd flags of
 	 * enum ibv_create_cq_attr */
 	uint32_t		comp_mask;
+	/* create cq attr flags - one or more flags from
+	 * enum ibv_create_cq_attr_flags
+	 */
+	uint32_t		flags;
 };
 
 enum verbs_context_mask {
@@ -1432,7 +1447,7 @@ struct ibv_cq *ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (cq_attr->comp_mask) {
+	if (cq_attr->comp_mask & ~IBV_CREATE_CQ_ATTR_RESERVED) {
 		errno = EINVAL;
 		return NULL;
 	}
