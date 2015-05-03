@@ -131,4 +131,11 @@ HIDDEN int ibverbs_init(struct ibv_device ***list);
 #define IBV_INIT_CMD_EX(cmd, size, opcode)				     \
 	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, NULL, 0, 0)
 
+#define _FILED_SZ_IN_STRUCT(resp, field)				\
+	(((void *)(&(resp)->field) - (void *)(resp)) + sizeof((resp)->field))
+
+#define IBV_IS_FIELD_IN_RESP(resp, resp_len, field)			\
+	((resp_len) >= _FILED_SZ_IN_STRUCT(resp, field) &&		\
+	 (resp)->response_length >= _FILED_SZ_IN_STRUCT(resp, field))
+
 #endif /* IB_VERBS_H */
