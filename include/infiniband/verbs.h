@@ -1157,6 +1157,15 @@ struct ibv_context {
 	void		       *abi_compat;
 };
 
+enum ibv_create_cq_attr {
+	IBV_CREATE_CQ_ATTR_FLAGS	= 1 << 0,
+	IBV_CREATE_CQ_ATTR_RESERVED	= 1 << 1
+};
+
+enum ibv_create_cq_attr_flags {
+	IBV_CREATE_CQ_ATTR_COMPLETION_TIMESTAMP	= 1 << 0,
+};
+
 struct ibv_create_cq_attr_ex {
 	/* Minimum number of entries required for CQ */
 	int			cqe;
@@ -1176,6 +1185,10 @@ struct ibv_create_cq_attr_ex {
 	/* compatibility mask (extended verb). Or'd flags of
 	 * enum ibv_create_cq_attr */
 	uint32_t		comp_mask;
+	/* create cq attr flags - one or more flags from
+	 * enum ibv_create_cq_attr_flags
+	 */
+	uint32_t		flags;
 };
 
 enum verbs_context_mask {
@@ -1452,7 +1465,7 @@ struct ibv_cq *ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (cq_attr->comp_mask) {
+	if (cq_attr->comp_mask & ~(IBV_CREATE_CQ_ATTR_RESERVED - 1)) {
 		errno = EINVAL;
 		return NULL;
 	}
