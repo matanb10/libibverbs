@@ -316,7 +316,8 @@ enum ibv_wc_opcode {
 
 enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
-	IBV_WC_WITH_IMM		= 1 << 1
+	IBV_WC_WITH_IMM		= 1 << 1,
+	IBV_WC_WITH_TIMESTAMP	= 1 << 2,
 };
 
 struct ibv_wc {
@@ -333,6 +334,23 @@ struct ibv_wc {
 	uint16_t		slid;
 	uint8_t			sl;
 	uint8_t			dlid_path_bits;
+};
+
+struct ibv_wc_ex {
+	uint64_t		wr_id;
+	enum ibv_wc_status	status;
+	enum ibv_wc_opcode	opcode;
+	uint32_t		vendor_err;
+	uint32_t		byte_len;
+	uint32_t		imm_data;	/* in network byte order */
+	uint32_t		qp_num;
+	uint32_t		src_qp;
+	int			wc_flags;
+	uint16_t		pkey_index;
+	uint16_t		slid;
+	uint8_t			sl;
+	uint8_t			dlid_path_bits;
+	uint64_t		timestamp;
 };
 
 enum ibv_access_flags {
@@ -977,6 +995,8 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*poll_cq_ex)(struct ibv_cq *ibcq, int num_entries,
+			  struct ibv_wc_ex *wc, int wc_size);
 	int (*drv_ibv_destroy_flow) (struct ibv_flow *flow);
 	int (*lib_ibv_destroy_flow) (struct ibv_flow *flow);
 	struct ibv_flow * (*drv_ibv_create_flow) (struct ibv_qp *qp,
@@ -1319,6 +1339,31 @@ ibv_create_srq_ex(struct ibv_context *context,
 		return NULL;
 	}
 	return vctx->create_srq_ex(context, srq_init_attr_ex);
+}
+
+/**
+ * ibv_poll_cq_ex - Poll a CQ for work completions
+ * @cq:the CQ being polled
+ * @num_entries:maximum number of completions to return
+ * @wc:array of at least @num_entries of &struct ibv_wc_ex where completions
+ *   will be returned
+ * @wc_size: the size of each wc
+ *
+ * Poll a CQ for (possibly multiple) completions.  If the return value
+ * is < 0, an error occurred.  If the return value is >= 0, it is the
+ * number of completions returned.  If the return value is
+ * non-negative and strictly less than num_entries, then the CQ was
+ * emptied.
+ */
+static inline int ibv_poll_cq_ex(struct ibv_cq *ibcq, int num_entries,
+				 struct ibv_wc_ex *wc, int wc_size)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(ibcq->context,
+						      poll_cq_ex);
+	if (!vctx)
+		return -ENOSYS;
+
+	return vctx->poll_cq_ex(ibcq, num_entries, wc, wc_size);
 }
 
 /**
