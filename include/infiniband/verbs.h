@@ -1196,6 +1196,16 @@ struct ibv_create_cq_attr_ex {
 	uint32_t		flags;
 };
 
+enum ibv_values_mask {
+	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
+	IBV_VALUES_MASK_RESERVED	= 1 << 1
+};
+
+struct ibv_values_ex {
+	uint32_t	comp_mask;
+	struct timespec raw_clock;
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -1212,6 +1222,8 @@ struct ibv_poll_cq_ex_attr {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_values)(struct ibv_context *context,
+			    struct ibv_values_ex *values);
 	struct ibv_cq *(*create_cq_ex)(struct ibv_context *context,
 				       struct ibv_create_cq_attr_ex *);
 	void *priv;
@@ -1689,6 +1701,27 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_query_values_ex - Get current @q_values of device,
+ * @q_values is mask (Or's bits of enum ibv_values_mask) of the attributes
+ *	we need to query.
+ */
+static inline int
+ibv_query_values_ex(struct ibv_context *context,
+		    struct ibv_values_ex *values)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, query_values);
+	if (!vctx)
+		return -ENOSYS;
+
+	if (values->comp_mask & ~(IBV_VALUES_MASK_RESERVED - 1))
+		return -EINVAL;
+
+	return vctx->query_values(context, values);
 }
 
 /**
