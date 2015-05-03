@@ -377,6 +377,13 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 	cmd->comp_channel  = cq_attr->channel ? cq_attr->channel->fd : -1;
 	cmd->comp_mask = 0;
 
+	if (cmd_core_size >= offsetof(struct ibv_create_cq_ex, flags) +
+	    sizeof(cmd->flags) && cq_attr->comp_mask & IBV_CREATE_CQ_ATTR_FLAGS)
+		cmd->flags = cq_attr->flags;
+	if (cmd_core_size >= offsetof(struct ibv_create_cq_ex, reserved) +
+	    sizeof(cmd->reserved))
+		cmd->reserved = 0;
+
 	err = write(context->cmd_fd, cmd, cmd_size);
 	if (err != cmd_size)
 		return errno;
