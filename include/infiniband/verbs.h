@@ -977,6 +977,23 @@ struct ibv_context {
 	void		       *abi_compat;
 };
 
+struct ibv_create_cq_attr_ex {
+	/* Minimum number of entries required for CQ */
+	int			cqe;
+	/* Consumer-supplied context returned for completion events */
+	void			*cq_context;
+	/* Completion channel where completion events will be queued.
+	 * May be NULL if completion events will not be used.
+	 */
+	struct ibv_comp_channel *channel;
+	/* Completion vector used to signal completion events.
+	 *  Must be >= 0 and < context->num_comp_vectors.
+	 */
+	int			comp_vector;
+	/* compatibility mask (extended verb) */
+	uint32_t		comp_mask;
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -988,6 +1005,9 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_cq *(*create_cq_ex)(struct ibv_context *context,
+				       struct ibv_create_cq_attr_ex *);
+	void *priv;
 	int (*poll_cq_ex)(struct ibv_cq *ibcq, int num_entries,
 			  struct ibv_wc_ex *wc, int wc_size);
 	int (*query_device_ex)(struct ibv_context *context,
@@ -1226,6 +1246,30 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 			     void *cq_context,
 			     struct ibv_comp_channel *channel,
 			     int comp_vector);
+
+/**
+ * ibv_create_cq_ex - Create a completion queue
+ * @context - Context CQ will be attached to
+ * @cq_attr - Attributes to create the CQ with
+ */
+static inline
+struct ibv_cq *ibv_create_cq_ex(struct ibv_context *context,
+				struct ibv_create_cq_attr_ex *cq_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, create_cq_ex);
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	if (cq_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return vctx->create_cq_ex(context, cq_attr);
+}
 
 /**
  * ibv_resize_cq - Modifies the capacity of the CQ.
