@@ -401,6 +401,8 @@ struct ibv_create_cq_ex {
 	__u32		comp_vector;
 	__s32		comp_channel;
 	__u32		comp_mask;
+	__u32		flags;
+	__u32		reserved;
 };
 
 struct ibv_create_cq_resp_ex {
