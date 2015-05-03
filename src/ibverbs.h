@@ -81,6 +81,11 @@ extern HIDDEN int abi_ver;
 
 HIDDEN int ibverbs_init(struct ibv_device ***list);
 
+struct verbs_ex_private {
+	struct ibv_cq *(*create_cq_ex)(struct ibv_context *context,
+				       struct ibv_create_cq_attr_ex *);
+};
+
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\
 		if (abi_ver > 2)					\
