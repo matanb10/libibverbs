@@ -189,6 +189,22 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, timestamp_mask) +
+			 sizeof(attr->timestamp_mask)) {
+		if (IBV_IS_FIELD_IN_RESP(resp, resp_core_size, timestamp_mask))
+			attr->timestamp_mask = resp->timestamp_mask;
+		else
+			attr->timestamp_mask = 0;
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, hca_core_clock) +
+			 sizeof(attr->hca_core_clock)) {
+		if (IBV_IS_FIELD_IN_RESP(resp, resp_core_size, hca_core_clock))
+			attr->hca_core_clock = resp->hca_core_clock;
+		else
+			attr->hca_core_clock = 0;
+	}
+
 	return 0;
 }
 
