@@ -168,9 +168,18 @@ struct ibv_device_attr {
 	uint8_t			phys_port_cnt;
 };
 
+enum ibv_device_attr_ex_attr {
+	IBV_EX_QUERY_DEV_TIMESTAMP	= 1UL << 0,
+	IBV_EX_QUERY_DEV_HCA_CORE_CLOCK	= 1UL << 1,
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
+	/* valid if IBV_EX_QUERY_DEV_TIMESTAMP is set in comp_mask */
+	uint64_t		timestamp_mask;
+	/* valid if IBV_EX_QUERY_DEV_HCA_CORE_CLOCK is set in comp_mask */
+	uint64_t		hca_core_clock;
 };
 
 struct ibv_device_attr_ex_resp {
