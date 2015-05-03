@@ -160,6 +160,20 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			      raw_fw_ver);
 	attr->comp_mask = 0;
 
+	if (attr->comp_mask & IBV_EX_QUERY_DEV_TIMESTAMP) {
+		if (IBV_IS_FIELD_IN_RESP(resp, resp_core_size, timestamp_mask))
+			attr->timestamp_mask = resp->timestamp_mask;
+		else
+			attr->comp_mask &= ~IBV_EX_QUERY_DEV_TIMESTAMP;
+	}
+
+	if (attr->comp_mask & IBV_EX_QUERY_DEV_HCA_CORE_CLOCK) {
+		if (IBV_IS_FIELD_IN_RESP(resp, resp_core_size, hca_core_clock))
+			attr->hca_core_clock = resp->hca_core_clock;
+		else
+			attr->comp_mask &= ~IBV_EX_QUERY_DEV_HCA_CORE_CLOCK;
+	}
+
 	return 0;
 }
 
