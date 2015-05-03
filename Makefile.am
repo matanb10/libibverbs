@@ -44,7 +44,8 @@ libibverbsincludedir = $(includedir)/infiniband
 
 libibverbsinclude_HEADERS = include/infiniband/arch.h include/infiniband/driver.h \
     include/infiniband/kern-abi.h include/infiniband/opcode.h include/infiniband/verbs.h \
-    include/infiniband/sa-kern-abi.h include/infiniband/sa.h include/infiniband/marshall.h
+    include/infiniband/sa-kern-abi.h include/infiniband/sa.h include/infiniband/marshall.h \
+    include/infiniband/compiler.h
 
 man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1	\
     man/ibv_rc_pingpong.1 man/ibv_uc_pingpong.1 man/ibv_ud_pingpong.1	\

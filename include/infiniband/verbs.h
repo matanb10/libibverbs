@@ -41,6 +41,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
+#include <infiniband/compiler.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -368,6 +369,159 @@ struct ibv_wc {
 	uint8_t			sl;
 	uint8_t			dlid_path_bits;
 };
+
+#define WC_FEATURE_FLAGS	(IBV_WC_EX_GRH | IBV_WC_EX_IMM)
+#define WC_STANDARD_FLAGS	(IBV_WC_EX_WITH_BYTE_LEN |\
+				 IBV_WC_EX_WITH_IMM |\
+				 IBV_WC_EX_WITH_QP_NUM |\
+				 IBV_WC_EX_WITH_SRC_QP |\
+				 IBV_WC_EX_WITH_PKEY_INDEX |\
+				 IBV_WC_EX_WITH_SLID |\
+				 IBV_WC_EX_WITH_SL |\
+				 IBV_WC_EX_WITH_DLID_PATH_BITS)
+
+enum ibv_wc_flags_ex {
+	IBV_WC_EX_GRH			= 1 << 0,
+	IBV_WC_EX_IMM			= 1 << 1,
+	IBV_WC_EX_WITH_BYTE_LEN		= 1 << 2,
+	IBV_WC_EX_WITH_IMM		= 1 << 3,
+	IBV_WC_EX_WITH_QP_NUM		= 1 << 4,
+	IBV_WC_EX_WITH_SRC_QP		= 1 << 5,
+	IBV_WC_EX_WITH_PKEY_INDEX	= 1 << 6,
+	IBV_WC_EX_WITH_SLID		= 1 << 7,
+	IBV_WC_EX_WITH_SL		= 1 << 8,
+	IBV_WC_EX_WITH_DLID_PATH_BITS	= 1 << 9,
+};
+
+/* fields order in wc_ex
+	uint32_t		byte_len,
+	uint32_t		imm_data;	// in network byte order
+	uint32_t		qp_num;
+	uint32_t		src_qp;
+	uint16_t		pkey_index;
+	uint16_t		slid;
+	uint8_t			sl;
+	uint8_t			dlid_path_bits;
+*/
+
+#define IBV_WC_EX_WITH_64BIT_FIELDS	0
+#define IBV_WC_EX_WITH_32BIT_FIELDS	(IBV_WC_EX_WITH_BYTE_LEN |\
+					 IBV_WC_EX_WITH_IMM	|\
+					 IBV_WC_EX_WITH_QP_NUM   |\
+					 IBV_WC_EX_WITH_SRC_QP)
+#define IBV_WC_EX_WITH_16BIT_FIELDS	(IBV_WC_EX_WITH_PKEY_INDEX |\
+					 IBV_WC_EX_WITH_SLID)
+#define IBV_WC_EX_WITH_8BIT_FIELDS	(IBV_WC_EX_WITH_SL	|\
+					 IBV_WC_EX_WITH_DLID_PATH_BITS)
+
+struct ibv_wc_ex {
+	uint64_t		wr_id;
+	/* wc_flags is a combination of ibv_wc_flags_ex flags. This dynamically
+	 * defines the fields exist in buffer[0] and hence defines the
+	 * ibv_wc_ex's size.
+	 */
+	uint64_t		wc_flags;
+	uint32_t		status;
+	uint32_t		opcode;
+	uint32_t		vendor_err;
+	uint32_t		reserved;
+	uint8_t			buffer[0];
+};
+
+static inline size_t ibv_wc_ex_get_offsetof64(const struct ibv_wc_ex *wc_ex,
+					      enum ibv_wc_flags_ex flag)
+{
+	return ibv_popcount64(wc_ex->wc_flags & IBV_WC_EX_WITH_64BIT_FIELDS &
+			      (flag - 1)) * sizeof(uint64_t);
+}
+
+static inline size_t ibv_wc_ex_get_offsetof32(const struct ibv_wc_ex *wc_ex,
+					      enum ibv_wc_flags_ex flag)
+{
+	return ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_64BIT_FIELDS)) *
+		sizeof(uint64_t) +
+		ibv_popcount64(wc_ex->wc_flags & IBV_WC_EX_WITH_32BIT_FIELDS &
+			       (flag - 1)) * sizeof(uint32_t);
+}
+
+static inline size_t ibv_wc_ex_get_offsetof16(const struct ibv_wc_ex *wc_ex,
+					      enum ibv_wc_flags_ex flag)
+{
+	return ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_64BIT_FIELDS)) *
+		sizeof(uint64_t) +
+		ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_32BIT_FIELDS)) *
+		sizeof(uint32_t) +
+		ibv_popcount64(wc_ex->wc_flags & IBV_WC_EX_WITH_16BIT_FIELDS &
+			       (flag - 1)) * sizeof(uint16_t);
+}
+
+static inline size_t ibv_wc_ex_get_offsetof8(const struct ibv_wc_ex *wc_ex,
+					     enum ibv_wc_flags_ex flag)
+{
+	return ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_64BIT_FIELDS)) *
+		sizeof(uint64_t) +
+		ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_32BIT_FIELDS)) *
+		sizeof(uint32_t) +
+		ibv_popcount64(wc_ex->wc_flags & (IBV_WC_EX_WITH_16BIT_FIELDS)) *
+		sizeof(uint16_t) +
+		ibv_popcount64(wc_ex->wc_flags & IBV_WC_EX_WITH_8BIT_FIELDS &
+			       (flag - 1)) * sizeof(uint8_t);
+}
+
+static inline uint64_t ibv_wc_ex_get64(const struct ibv_wc_ex *wc_ex,
+				       enum ibv_wc_flags_ex flag)
+{
+	uint64_t *pdata = (uint64_t *)(wc_ex->buffer +
+				       ibv_wc_ex_get_offsetof64(wc_ex, flag));
+
+	return *pdata;
+}
+
+static inline uint32_t ibv_wc_ex_get32(const struct ibv_wc_ex *wc_ex,
+				       enum ibv_wc_flags_ex flag)
+{
+	uint32_t *pdata = (uint32_t *)(wc_ex->buffer +
+				       ibv_wc_ex_get_offsetof32(wc_ex, flag));
+
+	return *pdata;
+}
+
+static inline uint16_t ibv_wc_ex_get16(const struct ibv_wc_ex *wc_ex,
+				       enum ibv_wc_flags_ex flag)
+{
+	uint16_t *pdata = (uint16_t *)(wc_ex->buffer +
+				       ibv_wc_ex_get_offsetof16(wc_ex, flag));
+
+	return *pdata;
+}
+
+static inline uint8_t ibv_wc_ex_get8(const struct ibv_wc_ex *wc_ex,
+				     enum ibv_wc_flags_ex flag)
+{
+	uint8_t *pdata = (uint8_t *)(wc_ex->buffer +
+				     ibv_wc_ex_get_offsetof8(wc_ex, flag));
+
+	return *pdata;
+}
+
+static inline size_t ibv_wc_ex_get_size(uint64_t flags)
+{
+	return ((ibv_popcount64(flags & IBV_WC_EX_WITH_64BIT_FIELDS) *
+		 sizeof(uint64_t) +
+		 ibv_popcount64(flags & IBV_WC_EX_WITH_32BIT_FIELDS) *
+		 sizeof(uint32_t) +
+		 ibv_popcount64(flags & IBV_WC_EX_WITH_16BIT_FIELDS) *
+		 sizeof(uint16_t) +
+		 ibv_popcount64(flags & IBV_WC_EX_WITH_8BIT_FIELDS) *
+		 sizeof(uint8_t) + (sizeof(uint64_t) - 1)) &
+		~(sizeof(uint64_t) - 1)) + sizeof(struct ibv_wc_ex);
+}
+
+static inline struct ibv_wc_ex *ibv_wc_ex_get_next(const struct ibv_wc_ex *wc)
+{
+	return (struct ibv_wc_ex *)((void *)wc +
+				    ibv_wc_ex_get_size(wc->wc_flags));
+}
 
 enum ibv_access_flags {
 	IBV_ACCESS_LOCAL_WRITE		= 1,
@@ -1010,8 +1164,16 @@ enum verbs_context_mask {
 	VERBS_CONTEXT_RESERVED	= 1 << 5
 };
 
+struct ibv_poll_cq_ex_attr {
+	unsigned int	max_entries;
+	uint32_t	comp_mask;
+};
+
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*poll_cq_ex)(struct ibv_cq *ibcq,
+			  struct ibv_wc_ex *wc,
+			  struct ibv_poll_cq_ex_attr *attr);
 	int (*query_device_ex)(struct ibv_context *context,
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
@@ -1355,6 +1517,32 @@ ibv_create_srq_ex(struct ibv_context *context,
 		return NULL;
 	}
 	return vctx->create_srq_ex(context, srq_init_attr_ex);
+}
+
+/**
+ * ibv_poll_cq_ex - Poll a CQ for work completions
+ * @cq:the CQ being polled
+ * @wc:array of at least @max_entries of &struct ibv_wc_ex where completions
+ *   will be returned
+ * @attr: Poll cq attributs
+ *
+ * Poll a CQ for (possibly multiple) completions.  If the return value
+ * is < 0, an error occurred.  If the return value is >= 0, it is the
+ * number of completions returned.  If the return value is
+ * non-negative and strictly less than max_entries, then the CQ was
+ * emptied.
+ */
+
+static inline int ibv_poll_cq_ex(struct ibv_cq *ibcq,
+				 struct ibv_wc_ex *wc,
+				 struct ibv_poll_cq_ex_attr *attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(ibcq->context,
+						      poll_cq_ex);
+	if (!vctx)
+		return -ENOSYS;
+
+	return vctx->poll_cq_ex(ibcq, wc, attr);
 }
 
 /**
