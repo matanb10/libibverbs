@@ -1181,6 +1181,11 @@ struct ibv_values_ex {
 	struct timespec raw_clock;
 };
 
+enum ib_timestamp_flags {
+	IBV_TIMESTAMP_COMPLETION = 1 << 0, /* specify on create_cq */
+	IBV_TIMESTAMP_RAW	 = 1 << 31
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -1197,6 +1202,9 @@ struct ibv_poll_cq_ex_attr {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*get_timestamp)(struct ibv_context *context,
+			     const struct ibv_wc_ex *wc, struct timespec *ts,
+			     int flags);
 	int (*query_values)(struct ibv_context *context,
 			    struct ibv_values_ex *values);
 	struct ibv_cq *(*create_cq_ex)(struct ibv_context *context,
@@ -1678,6 +1686,36 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_get_timestamp - Return the requested timestamp for the given wc
+ * @context - verbs context
+ * @wc - work completion to get timestamp results from
+ * @ts - struct timespec to return timestamp in
+ * @flags - which timestamp to return and in what form
+ *
+ * Depending on the flags used to create the queue pair/completion queue,
+ * different timestamps might be available.  Callers should specify which
+ * timestamp they are interested in using the flags element, and if they wish
+ * either a cooked or raw timestamp.  A raw timestamp is implementation defined
+ * and will be passed back in the tv_nsec portion of the struct timespec.  A raw
+ * timestamp can not be relied upon to have any ordering value between more than
+ * one HCA or driver.  A cooked timestamp will return a valid struct timespec
+ * normalized as closely as possible to the return value for CLOCK_MONOTONIC of
+ * clock_gettime at the time of the timestamp.
+ */
+static inline int
+ibv_get_timestamp(struct ibv_context *context, const struct ibv_wc_ex *wc,
+		  struct timespec *ts, int flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, get_timestamp);
+	if (!vctx)
+		return -ENOSYS;
+
+	return vctx->get_timestamp(context, wc, ts, flags);
 }
 
 /**
