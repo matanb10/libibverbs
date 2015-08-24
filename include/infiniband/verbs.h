@@ -1206,6 +1206,11 @@ struct ibv_values_ex {
 	struct timespec raw_clock;
 };
 
+enum ib_timestamp_flags {
+	IBV_TIMESTAMP_COMPLETION	= 1 << 0,
+	IBV_TIMESTAMP_RESERVED		= 1 << 1,
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -1222,6 +1227,9 @@ struct ibv_poll_cq_ex_attr {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*get_timestamp)(struct ibv_context *context,
+			     uint64_t raw_time, struct timespec *ts,
+			     int flags);
 	int (*query_values)(struct ibv_context *context,
 			    struct ibv_values_ex *values);
 	struct ibv_cq *(*create_cq_ex)(struct ibv_context *context,
@@ -1701,6 +1709,38 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_get_timestamp - Return the requested timestamp for the raw time
+ * @context - verbs context
+ * @raw_time - the raw time returned from the vendor
+ * @ts - struct timespec to return timestamp in
+ * @flags - which timestamp to return and in what form (Or'ed flags of
+ *	ib_timestamp_flags)
+ *
+ * Depending on the flags used to create the queue pair/completion queue,
+ * different timestamps might be available.  Callers should specify which
+ * raw_time was passed to this function and which kind of timespec they wish
+ * to get using the @flags function argument. A cooked timestamp will be
+ * returned as a valid struct timespec, normalized as closely as possible to
+ * the return value for CLOCK_MONOTONIC of clock_gettime at the time of
+ * the timestamp.
+ */
+static inline int
+ibv_get_timestamp(struct ibv_context *context, uint64_t raw_time,
+		  struct timespec *ts, int flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, get_timestamp);
+	if (!vctx)
+		return -ENOSYS;
+
+	if (flags & ~(IBV_TIMESTAMP_RESERVED - 1))
+		return -EINVAL;
+
+	return vctx->get_timestamp(context, raw_time, ts, flags);
 }
 
 /**
