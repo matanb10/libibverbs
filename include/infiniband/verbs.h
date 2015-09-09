@@ -393,9 +393,14 @@ enum ibv_wc_flags_ex {
 	IBV_WC_EX_WITH_SLID		= 1 << 7,
 	IBV_WC_EX_WITH_SL		= 1 << 8,
 	IBV_WC_EX_WITH_DLID_PATH_BITS	= 1 << 9,
+	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP = 1 << 10,
 };
 
 /* fields order in wc_ex
+	// Raw timestamp of completion. A raw timestamp is implementation
+	// defined andcan not be relied upon to have any ordering value
+	// between more than one HCA or driver.
+	uint64_t		completion_timestamp;
 	uint32_t		byte_len,
 	uint32_t		imm_data;	// in network byte order
 	uint32_t		qp_num;
@@ -406,7 +411,7 @@ enum ibv_wc_flags_ex {
 	uint8_t			dlid_path_bits;
 */
 
-#define IBV_WC_EX_WITH_64BIT_FIELDS	0
+#define IBV_WC_EX_WITH_64BIT_FIELDS	(IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 #define IBV_WC_EX_WITH_32BIT_FIELDS	(IBV_WC_EX_WITH_BYTE_LEN |\
 					 IBV_WC_EX_WITH_IMM	|\
 					 IBV_WC_EX_WITH_QP_NUM   |\
