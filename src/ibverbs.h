@@ -37,6 +37,7 @@
 #include <pthread.h>
 
 #include <infiniband/driver.h>
+#include <rdma/rdma_user_ioctl.h>
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
 
@@ -136,4 +137,33 @@ struct verbs_ex_private {
 #define IBV_INIT_CMD_EX(cmd, size, opcode)				     \
 	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, NULL, 0, 0)
 
+static inline void fill_ioctl_hdr(struct ib_uverbs_ioctl_hdr *cmd,
+				  uint16_t object_type, uint32_t length, uint16_t action,
+				  size_t num_attr)
+{
+	cmd->length = length;
+	cmd->flags = 0;
+	cmd->driver_id = 0;
+	cmd->object_type = object_type;
+	cmd->action = action;
+	cmd->num_attrs = num_attr;
+}
+
+static inline void fill_attr(struct ib_uverbs_attr *attr, uint16_t attr_id,
+			     uint16_t len, void *ptr_idr)
+{
+	attr->attr_id = attr_id;
+	attr->len = len;
+	attr->reserved = 0;
+	attr->ptr_idr = (uint64_t)ptr_idr;
+}
+
+static inline void fill_attr_obj(struct ib_uverbs_attr *attr, uint16_t attr_id,
+				 uint32_t idr)
+{
+	attr->attr_id = attr_id;
+	attr->len = 0;
+	attr->reserved = 0;
+	attr->ptr_idr = idr;
+}
 #endif /* IB_VERBS_H */

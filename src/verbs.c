@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
@@ -322,11 +323,14 @@ static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *c
 	return NULL;
 }
 
+struct ibv_ioctl_cmd_alloc_comp_channel {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs;
+} __attribute__((packed, aligned(4)));
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_comp_channel            *channel;
-	struct ibv_create_comp_channel      cmd;
-	struct ibv_create_comp_channel_resp resp;
+	struct ibv_ioctl_cmd_alloc_comp_channel cmd;
 
 	if (abi_ver <= 2)
 		return ibv_create_comp_channel_v2(context);
@@ -335,16 +339,17 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	if (!channel)
 		return NULL;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_COMP_CHANNEL, &resp, sizeof resp);
-	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
-		free(channel);
-		return NULL;
-	}
+	fill_attr_obj(&cmd.attrs, CREATE_COMP_CHANNEL_FD, 0);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_COMP_CHANNEL, sizeof(cmd),
+		       UVERBS_COMP_CHANNEL_CREATE,
+		       CREATE_COMP_CHANNEL_RESERVED);
+	if (ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
+		return errno;
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
-	channel->fd      = resp.fd;
+	channel->fd      = cmd.attrs.ptr_idr;
 	channel->refcnt  = 0;
 
 	return channel;
