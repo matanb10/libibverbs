@@ -450,7 +450,9 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			goto clean_cq;
 		}
 
+#if 0
 		ibv_query_qp(ctx->qp, &attr, IBV_QP_CAP, &init_attr);
+#endif
 		if (init_attr.cap.max_inline_data >= size) {
 			ctx->send_flags |= IBV_SEND_INLINE;
 		}
