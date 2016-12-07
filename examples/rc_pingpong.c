@@ -479,23 +479,35 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	return ctx;
 
 clean_qp:
+#ifdef DESTROY
 	ibv_destroy_qp(ctx->qp);
+#endif
 
 clean_cq:
+#ifdef DESTROY
 	ibv_destroy_cq(pp_cq(ctx));
+#endif
 
 clean_mr:
+#ifdef DESTROY
 	ibv_dereg_mr(ctx->mr);
+#endif
 
 clean_pd:
+#ifdef DESTROY
 	ibv_dealloc_pd(ctx->pd);
+#endif
 
 clean_comp_channel:
+#ifdef DESTROY
 	if (ctx->channel)
 		ibv_destroy_comp_channel(ctx->channel);
+#endif
 
 clean_device:
+#ifdef DESTROY
 	ibv_close_device(ctx->context);
+#endif
 
 clean_buffer:
 	free(ctx->buf);
@@ -508,6 +520,9 @@ clean_ctx:
 
 int pp_close_ctx(struct pingpong_context *ctx)
 {
+#ifndef DESTROY
+	return 0;
+#endif
 	if (ibv_destroy_qp(ctx->qp)) {
 		fprintf(stderr, "Couldn't destroy QP\n");
 		return 1;

@@ -1159,7 +1159,7 @@ struct ibv_create_srq_resp_v5 {
 	__u32 srq_handle;
 };
 
-#define IB_UVERBS_SCOPE_DRIVER	0x8000
+#define IB_UVERBS_SCOPE_DRIVER	0x1000
 
 enum {
 	UVERBS_UHW_IN = IB_UVERBS_SCOPE_DRIVER,
@@ -1320,6 +1320,7 @@ struct ib_uverbs_ioctl_create_qp {
 	__u32 max_inline_data;
 	__u8  sq_sig_all;
 	__u8  qp_type;
+	__u16 reserved;
 };
 
 struct ib_uverbs_ioctl_create_qp_resp {

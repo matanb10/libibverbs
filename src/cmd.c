@@ -64,16 +64,19 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *leg
 	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION)
 		return ENOSYS;
 
-	fill_attr(attr++, GET_CONTEXT_RESP, sizeof(resp), &resp);
-	fill_attr(attr++, UVERBS_UHW_IN,
-		  cmd_size - sizeof(struct ibv_get_context), legacy_cmd + 1);
-	fill_attr(attr++, UVERBS_UHW_OUT,
-		  resp_size - sizeof(resp), legacy_resp + 1);
+	fill_attr_out(attr++, GET_CONTEXT_RESP, sizeof(resp), &resp);
+	if (cmd_size - sizeof(struct ibv_get_context))
+		fill_attr_in(attr++, UVERBS_UHW_IN,
+			     cmd_size - sizeof(struct ibv_get_context), legacy_cmd + 1);
+	if (resp_size - sizeof(resp))
+		fill_attr_out(attr++, UVERBS_UHW_OUT,
+			      resp_size - sizeof(resp), legacy_resp + 1);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_DEVICE,
 		       (void *)attr - (void *)&cmd, UVERBS_DEVICE_ALLOC_CONTEXT,
 		       attr - cmd.attrs);
 
 	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
+	printf("ret is %d\n", ret);
 	if (ret)
 		return errno;
 
@@ -146,7 +149,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_DEVICE, sizeof(cmd),
 		       UVERBS_DEVICE_QUERY, 1);
-	fill_attr(&cmd.attrs, QUERY_DEVICE_RESP, sizeof(resp), &resp);
+	fill_attr_out(&cmd.attrs, QUERY_DEVICE_RESP, sizeof(resp), &resp);
 
 	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
 	if (ret)
@@ -186,14 +189,14 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION)
 		return ENOSYS;
 
-	fill_attr(cattr++, QUERY_DEVICE_RESP, sizeof(resp), &resp);
-	fill_attr(cattr++, QUERY_DEVICE_ODP, sizeof(odp_caps), &odp_caps);
-	fill_attr(cattr++, QUERY_DEVICE_TIMESTAMP_MASK,
-		  sizeof(timestamp_mask), &timestamp_mask);
-	fill_attr(cattr++, QUERY_DEVICE_HCA_CORE_CLOCK,
-		  sizeof(hca_core_clock), &hca_core_clock);
-	fill_attr(cattr++, QUERY_DEVICE_CAP_FLAGS,
-		  sizeof(device_cap_flags_ex), &device_cap_flags_ex);
+	fill_attr_out(cattr++, QUERY_DEVICE_RESP, sizeof(resp), &resp);
+	fill_attr_out(cattr++, QUERY_DEVICE_ODP, sizeof(odp_caps), &odp_caps);
+	fill_attr_out(cattr++, QUERY_DEVICE_TIMESTAMP_MASK,
+		      sizeof(timestamp_mask), &timestamp_mask);
+	fill_attr_out(cattr++, QUERY_DEVICE_HCA_CORE_CLOCK,
+		      sizeof(hca_core_clock), &hca_core_clock);
+	fill_attr_out(cattr++, QUERY_DEVICE_CAP_FLAGS,
+		      sizeof(device_cap_flags_ex), &device_cap_flags_ex);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_DEVICE,
 		       (void *)cattr - (void *)&cmd,
 		       UVERBS_DEVICE_QUERY, cattr - cmd.attrs);
@@ -282,10 +285,12 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		return ENOSYS;
 
 	fill_attr_obj(attr++, ALLOC_PD_HANDLE, 0);
-	fill_attr(attr++, UVERBS_UHW_IN,
-		  cmd_size - sizeof(struct ibv_alloc_pd), legacy_cmd + 1);
-	fill_attr(attr++, UVERBS_UHW_OUT,
-		  resp_size - sizeof(struct ibv_alloc_pd_resp), legacy_resp + 1);
+	if (cmd_size - sizeof(struct ibv_alloc_pd))
+		fill_attr_in(attr++, UVERBS_UHW_IN,
+			     cmd_size - sizeof(struct ibv_alloc_pd), legacy_cmd + 1);
+	if (resp_size - sizeof(struct ibv_alloc_pd_resp))
+		fill_attr_out(attr++, UVERBS_UHW_OUT,
+			      resp_size - sizeof(struct ibv_alloc_pd_resp), legacy_resp + 1);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_PD, (void *)attr - (void *)&cmd,
 		       UVERBS_PD_ALLOC, attr - cmd.attrs);
 
@@ -392,8 +397,8 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	fill_attr_obj(attr++, REG_MR_HANDLE, 0);
 	fill_attr_obj(attr++, REG_MR_PD_HANDLE, pd->handle);
-	fill_attr(attr++, REG_MR_CMD, sizeof(reg_mr_cmd), &reg_mr_cmd);
-	fill_attr(attr++, REG_MR_RESP, sizeof(resp), &resp);
+	fill_attr_in(attr++, REG_MR_CMD, sizeof(reg_mr_cmd), &reg_mr_cmd);
+	fill_attr_out(attr++, REG_MR_RESP, sizeof(resp), &resp);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_MR, (void *)attr - (void *)&cmd,
 		       UVERBS_MR_REG, attr - cmd.attrs);
 
@@ -516,20 +521,24 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	__u32 _cqe_out;
 	struct ib_uverbs_attr *attrs = cmd.attrs;
 
+	printf("%s:%d\n", __func__, __LINE__);
 	fill_attr_obj(attrs++, CREATE_CQ_HANDLE, 0);
-	fill_attr(attrs++, CREATE_CQ_CQE, sizeof(_cqe), &_cqe);
-	fill_attr(attrs++, CREATE_CQ_USER_HANDLE, sizeof(_user_handle),
+	fill_attr_in(attrs++, CREATE_CQ_CQE, sizeof(_cqe), &_cqe);
+	fill_attr_in(attrs++, CREATE_CQ_USER_HANDLE, sizeof(_user_handle),
 		  &_user_handle);
-	fill_attr(attrs++, CREATE_CQ_COMP_VECTOR, sizeof(_comp_vector),
+	fill_attr_in(attrs++, CREATE_CQ_COMP_VECTOR, sizeof(_comp_vector),
 		  &_comp_vector);
-	fill_attr(attrs++, CREATE_CQ_RESP_CQE, sizeof(_cqe_out), &_cqe_out);
-	fill_attr(attrs++, UVERBS_UHW_IN,
-		  cmd_size - sizeof(struct ibv_create_cq), legacy_cmd + 1);
-	fill_attr(attrs++, UVERBS_UHW_OUT,
-		  resp_size - sizeof(struct ibv_create_cq_resp), legacy_resp + 1);
+	fill_attr_out(attrs++, CREATE_CQ_RESP_CQE, sizeof(_cqe_out), &_cqe_out);
+	if (cmd_size - sizeof(struct ibv_create_cq))
+		fill_attr_in(attrs++, UVERBS_UHW_IN,
+			     cmd_size - sizeof(struct ibv_create_cq), legacy_cmd + 1);
+	if (resp_size - sizeof(struct ibv_create_cq_resp))
+		fill_attr_out(attrs++, UVERBS_UHW_OUT,
+			      resp_size - sizeof(struct ibv_create_cq_resp), legacy_resp + 1);
 	if (channel)
 		fill_attr_obj(attrs++, CREATE_CQ_COMP_CHANNEL, comp_channel);
 
+	printf("%s:%d\n", __func__, __LINE__);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_CQ, (void *)attrs - (void *)&cmd,
 		       UVERBS_CQ_CREATE,
 		       attrs - cmd.attrs);
@@ -537,9 +546,11 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	if (ret)
 		return errno;
 
+	printf("%s:%d\n", __func__, __LINE__);
 	cq->context = context;
 	cq->cqe = _cqe_out;
 	cq->handle = cmd.attrs[0].ptr_idr;
+	printf("%s:%d\n", __func__, __LINE__);
 
 	return 0;
 }
@@ -984,9 +995,9 @@ static int create_qp_ioctl_common(struct ibv_qp_init_attr_ex *qp_attr,
 	cmd->max_inline_data = qp_attr->cap.max_inline_data;
 	cmd->sq_sig_all	     = qp_attr->sq_sig_all;
 	cmd->qp_type         = qp_attr->qp_type;
-	fill_attr(attr++, CREATE_QP_CMD, sizeof(*cmd), cmd);
+	fill_attr_in(attr++, CREATE_QP_CMD, sizeof(*cmd), cmd);
 
-	fill_attr(attr++, CREATE_QP_RESP, sizeof(*resp), resp);
+	fill_attr_out(attr++, CREATE_QP_RESP, sizeof(*resp), resp);
 
 	return attr - attrs;
 }
@@ -1025,7 +1036,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 		return ret;
 	attr = cmd.attrs + ret;
 
-	fill_attr(attr++, CREATE_QP_USER_HANDLE, sizeof(__u64), &qp_handle);
+	fill_attr_in(attr++, CREATE_QP_USER_HANDLE, sizeof(__u64), &qp_handle);
 
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_CREATE_FLAGS) {
 		if (qp_attr->create_flags & ~CREATE_QP_EX2_SUP_CREATE_FLAGS)
@@ -1033,17 +1044,17 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, create_flags) +
 		    sizeof(qp_attr->create_flags))
 			return EINVAL;
-		fill_attr(attr++, CREATE_QP_CMD_FLAGS,
+		fill_attr_in(attr++, CREATE_QP_CMD_FLAGS,
 			  sizeof(qp_attr->create_flags),
 			  &qp_attr->create_flags);
 	}
 
 	if (cmd_size - sizeof(struct ibv_create_qp))
-		fill_attr(attr++, UVERBS_UHW_IN,
+		fill_attr_in(attr++, UVERBS_UHW_IN,
 			  cmd_size - sizeof(struct ibv_create_qp), legacy_cmd + 1);
 	if (resp_size - sizeof(struct ibv_create_qp_resp))
-		fill_attr(attr++, UVERBS_UHW_OUT,
-			  resp_size - sizeof(struct ibv_create_qp_resp), legacy_resp + 1);
+		fill_attr_out(attr++, UVERBS_UHW_OUT,
+			      resp_size - sizeof(struct ibv_create_qp_resp), legacy_resp + 1);
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_QP, (void *)attr - (void *)&cmd,
 		       UVERBS_QP_CREATE, attr - cmd.attrs);
 	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
@@ -1088,14 +1099,13 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 		return err;
 	attr = cmd.attrs + err;
 
-	fill_attr(attr++, CREATE_QP_USER_HANDLE, sizeof(__u64), &qp_handle);
+	fill_attr_in(attr++, CREATE_QP_USER_HANDLE, sizeof(__u64), &qp_handle);
 	if (cmd_size - sizeof(struct ibv_create_qp))
-		fill_attr(attr++, UVERBS_UHW_IN,
+		fill_attr_in(attr++, UVERBS_UHW_IN,
 			  cmd_size - sizeof(struct ibv_create_qp), legacy_cmd + 1);
 	if (resp_size - legacy_resp_sz)
-		fill_attr(attr++, UVERBS_UHW_OUT,
-			  resp_size - legacy_resp_sz, (void *)legacy_resp +
-			  legacy_resp_sz);
+		fill_attr_out(attr++, UVERBS_UHW_OUT,
+			      resp_size - legacy_resp_sz, legacy_resp + 1);
 
 	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_QP, (void *)attr - (void *)&cmd,
 		       UVERBS_QP_CREATE, attr - cmd.attrs);
@@ -1320,57 +1330,57 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	fill_attr_obj(cattr++, MODIFY_QP_HANDLE, qp->handle);
 	if (attr_mask & IBV_QP_QKEY)
-		fill_attr(cattr++, MODIFY_QP_QKEY, sizeof(__u32), &attr->qkey);
+		fill_attr_in(cattr++, MODIFY_QP_QKEY, sizeof(__u32), &attr->qkey);
 	if (attr_mask & IBV_QP_RQ_PSN)
-		fill_attr(cattr++, MODIFY_QP_RQ_PSN, sizeof(__u32),
+		fill_attr_in(cattr++, MODIFY_QP_RQ_PSN, sizeof(__u32),
 			  &attr->rq_psn);
 	if (attr_mask & IBV_QP_SQ_PSN)
-		fill_attr(cattr++, MODIFY_QP_SQ_PSN, sizeof(__u32),
+		fill_attr_in(cattr++, MODIFY_QP_SQ_PSN, sizeof(__u32),
 			  &attr->sq_psn);
 	if (attr_mask & IBV_QP_DEST_QPN)
-		fill_attr(cattr++, MODIFY_QP_DEST_QPN, sizeof(__u32),
+		fill_attr_in(cattr++, MODIFY_QP_DEST_QPN, sizeof(__u32),
 			  &attr->dest_qp_num);
 	if (attr_mask & IBV_QP_ACCESS_FLAGS)
-		fill_attr(cattr++, MODIFY_QP_ACCESS_FLAGS, sizeof(__u32),
+		fill_attr_in(cattr++, MODIFY_QP_ACCESS_FLAGS, sizeof(__u32),
 			  &attr->qp_access_flags);
 	if (attr_mask & IBV_QP_PKEY_INDEX)
-		fill_attr(cattr++, MODIFY_QP_PKEY_INDEX, sizeof(__u16),
+		fill_attr_in(cattr++, MODIFY_QP_PKEY_INDEX, sizeof(__u16),
 			  &attr->pkey_index);
 	if (attr_mask & IBV_QP_STATE)
-		fill_attr(cattr++, MODIFY_QP_STATE, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_STATE, sizeof(__u8),
 			  &attr->qp_state);
 	if (attr_mask & IBV_QP_CUR_STATE)
-		fill_attr(cattr++, MODIFY_QP_CUR_STATE, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_CUR_STATE, sizeof(__u8),
 			  &attr->cur_qp_state);
 	if (attr_mask & IBV_QP_PATH_MTU)
-		fill_attr(cattr++, MODIFY_QP_PATH_MTU, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_PATH_MTU, sizeof(__u8),
 			  &attr->path_mtu);
 	if (attr_mask & IBV_QP_PATH_MIG_STATE)
-		fill_attr(cattr++, MODIFY_QP_PATH_MIG_STATE, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_PATH_MIG_STATE, sizeof(__u8),
 			  &attr->path_mig_state);
 	if (attr_mask & IBV_QP_EN_SQD_ASYNC_NOTIFY)
-		fill_attr(cattr++, MODIFY_QP_EN_SQD_ASYNC_NOTIFY, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_EN_SQD_ASYNC_NOTIFY, sizeof(__u8),
 			  &attr->en_sqd_async_notify);
 	if (attr_mask & IBV_QP_MAX_QP_RD_ATOMIC)
-		fill_attr(cattr++, MODIFY_QP_MAX_RD_ATOMIC, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_MAX_RD_ATOMIC, sizeof(__u8),
 			  &attr->max_rd_atomic);
 	if (attr_mask & IBV_QP_MAX_DEST_RD_ATOMIC)
-		fill_attr(cattr++, MODIFY_QP_MAX_DEST_RD_ATOMIC, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_MAX_DEST_RD_ATOMIC, sizeof(__u8),
 			  &attr->max_dest_rd_atomic);
 	if (attr_mask & IBV_QP_MIN_RNR_TIMER)
-		fill_attr(cattr++, MODIFY_QP_MIN_RNR_TIMER, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_MIN_RNR_TIMER, sizeof(__u8),
 			  &attr->min_rnr_timer);
 	if (attr_mask & IBV_QP_PORT)
-		fill_attr(cattr++, MODIFY_QP_PORT, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_PORT, sizeof(__u8),
 			  &attr->port_num);
 	if (attr_mask & IBV_QP_TIMEOUT)
-		fill_attr(cattr++, MODIFY_QP_TIMEOUT, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_TIMEOUT, sizeof(__u8),
 			  &attr->timeout);
 	if (attr_mask & IBV_QP_RETRY_CNT)
-		fill_attr(cattr++, MODIFY_QP_RETRY_CNT, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_RETRY_CNT, sizeof(__u8),
 			  &attr->retry_cnt);
 	if (attr_mask & IBV_QP_RNR_RETRY)
-		fill_attr(cattr++, MODIFY_QP_RNR_RETRY, sizeof(__u8),
+		fill_attr_in(cattr++, MODIFY_QP_RNR_RETRY, sizeof(__u8),
 			  &attr->rnr_retry);
 
 	if (attr_mask & IBV_QP_AV) {
@@ -1386,7 +1396,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		av.static_rate	    = attr->ah_attr.static_rate;
 		av.is_global	    = attr->ah_attr.is_global;
 		av.port_num	    = attr->ah_attr.port_num;
-		fill_attr(cattr++, MODIFY_QP_AV, sizeof(av), &av);
+		fill_attr_in(cattr++, MODIFY_QP_AV, sizeof(av), &av);
 	}
 
 	if (attr_mask & IBV_QP_ALT_PATH) {
@@ -1405,7 +1415,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		alt_path.pkey_index	 = attr->alt_pkey_index;
 		alt_path.port_num	 = attr->alt_port_num;
 		alt_path.timeout	 = attr->alt_timeout;
-		fill_attr(cattr++, MODIFY_QP_ALT_PATH, sizeof(alt_path),
+		fill_attr_in(cattr++, MODIFY_QP_ALT_PATH, sizeof(alt_path),
 			  &alt_path);
 	}
 

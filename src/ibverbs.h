@@ -154,7 +154,24 @@ static inline void fill_attr(struct ib_uverbs_attr *attr, uint16_t attr_id,
 {
 	attr->attr_id = attr_id;
 	attr->len = len;
+	attr->flags = UVERBS_ATTR_F_MANDATORY;
 	attr->reserved = 0;
+}
+
+static inline void fill_attr_in(struct ib_uverbs_attr *attr, uint16_t attr_id,
+				uint16_t len, void *ptr_idr)
+{
+	fill_attr(attr, attr_id, len, ptr_idr);
+	if (len <= sizeof(uint64_t))
+	    memcpy((void *)&attr->ptr_idr, ptr_idr, len);
+	else
+	    attr->ptr_idr = (uint64_t)ptr_idr;
+}
+
+static inline void fill_attr_out(struct ib_uverbs_attr *attr, uint16_t attr_id,
+				uint16_t len, void *ptr_idr)
+{
+	fill_attr(attr, attr_id, len, ptr_idr);
 	attr->ptr_idr = (uint64_t)ptr_idr;
 }
 
