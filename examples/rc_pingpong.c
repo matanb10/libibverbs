@@ -49,6 +49,7 @@
 
 #include "pingpong.h"
 
+#define DESTROY
 #ifndef max
 #define max(x, y) (((x) > (y)) ? (x) : (y))
 #endif
@@ -481,6 +482,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 clean_qp:
 #ifdef DESTROY
 	ibv_destroy_qp(ctx->qp);
+	printf("destroy qp\n");
 #endif
 
 clean_cq:
@@ -523,6 +525,7 @@ int pp_close_ctx(struct pingpong_context *ctx)
 #ifndef DESTROY
 	return 0;
 #endif
+	printf("destroy qp\n");
 	if (ibv_destroy_qp(ctx->qp)) {
 		fprintf(stderr, "Couldn't destroy QP\n");
 		return 1;

@@ -228,18 +228,31 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	return 0;
 }
 
+struct ibv_ioctl_cmd_query_port {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[QUERY_PORT_RESERVED];
+} __attribute__((packed, aligned(4)));
+
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
-		       struct ibv_query_port *cmd, size_t cmd_size)
+		       struct ibv_query_port *legacy_cmd, size_t legacy_cmd_size)
 {
+	int ret;
 	struct ibv_query_port_resp resp;
+	struct ibv_ioctl_cmd_query_port cmd;
+	struct ib_uverbs_attr *cattr = cmd.attrs;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
-	cmd->port_num = port_num;
-	memset(cmd->reserved, 0, sizeof cmd->reserved);
+	fill_attr_in(cattr++, QUERY_PORT_PORT_NUM, sizeof(port_num), &port_num);
+	fill_attr_out(cattr++, QUERY_PORT_RESP, sizeof(resp), &resp);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_DEVICE,
+		       (void *)cattr - (void *)&cmd,
+		       UVERBS_DEVICE_PORT_QUERY, cattr - cmd.attrs);
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
+	if (ret) {
+		printf("ret %d\n", ret);
 		return errno;
+	}
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
@@ -306,14 +319,21 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 	return 0;
 }
 
+struct ibv_ioctl_cmd_dealloc_pd {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[DEALLOC_PD_RESERVED];
+} __attribute__((packed, aligned(4)));
+
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
 {
-	struct ibv_dealloc_pd cmd;
+	struct ibv_ioctl_cmd_dealloc_pd cmd;
+	struct ib_uverbs_attr *attr = cmd.attrs;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DEALLOC_PD);
-	cmd.pd_handle = pd->handle;
+	fill_attr_obj(attr++, DEALLOC_PD_HANDLE, pd->handle);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_PD, (void *)attr - (void *)&cmd,
+		       UVERBS_PD_DEALLOC, attr - cmd.attrs);
 
-	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+	if (ioctl(pd->context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
 		return errno;
 
 	return 0;
@@ -450,14 +470,22 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 	return 0;
 }
 
+struct ibv_ioctl_cmd_dereg_mr {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[DEREG_MR_RESERVED];
+} __attribute__((packed, aligned(4)));
+/* mr, pd, cmd, resp */
+
 int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 {
-	struct ibv_dereg_mr cmd;
+	struct ibv_ioctl_cmd_dereg_mr cmd;
+	struct ib_uverbs_attr *cattr = cmd.attrs;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DEREG_MR);
-	cmd.mr_handle = mr->handle;
+	fill_attr_obj(cattr++, DEREG_MR_HANDLE, mr->handle);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_MR, (void *)cattr - (void *)&cmd,
+		       UVERBS_MR_DEREG, cattr - cmd.attrs);
 
-	if (write(mr->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+	if (ioctl(mr->context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
 		return errno;
 
 	return 0;
@@ -682,16 +710,25 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 	return 0;
 }
 
+struct ibv_ioctl_cmd_destroy_cq {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[DESTROY_CQ_RESERVED];
+} __attribute__((packed, aligned(4)));
+/* handle, cqe, user_handle, comp_channel, comp_vector, <flags>, resp_cqe */
+
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
-	struct ibv_destroy_cq      cmd;
 	struct ibv_destroy_cq_resp resp;
+	struct ibv_ioctl_cmd_destroy_cq cmd;
+	struct ib_uverbs_attr *cattr = cmd.attrs;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_CQ, &resp, sizeof resp);
-	cmd.cq_handle = cq->handle;
-	cmd.reserved  = 0;
+	fill_attr_obj(cattr++, DESTROY_CQ_HANDLE, cq->handle);
+	fill_attr_out(cattr++, DESTROY_CQ_RESP, sizeof(resp), &resp);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_CQ,
+		       (void *)cattr - (void *)&cmd,
+		       UVERBS_CQ_DESTROY, cattr - cmd.attrs);
 
-	if (write(cq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+	if (ioctl(cq->context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
 		return errno;
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
@@ -1686,22 +1723,31 @@ int ibv_cmd_destroy_ah(struct ibv_ah *ah)
 	return 0;
 }
 
+struct ibv_ioctl_cmd_destroy_qp {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[DESTROY_QP_RESERVED];
+} __attribute__((packed, aligned(4)));
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
-	struct ibv_destroy_qp      cmd;
-	struct ibv_destroy_qp_resp resp;
+	__u32 events_reported;
+	struct ibv_ioctl_cmd_destroy_qp cmd;
+	struct ib_uverbs_attr *cattr = cmd.attrs;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_QP, &resp, sizeof resp);
-	cmd.qp_handle = qp->handle;
-	cmd.reserved  = 0;
+	fill_attr_obj(cattr++, DESTROY_QP_HANDLE, qp->handle);
+	fill_attr_out(cattr++, DESTROY_QP_EVENTS_REPORTED,
+		      sizeof(events_reported), &events_reported);
+	fill_ioctl_hdr(&cmd.hdr, UVERBS_TYPE_QP,
+		       (void *)cattr - (void *)&cmd,
+		       UVERBS_QP_DESTROY, cattr - cmd.attrs);
 
-	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+	if (ioctl(qp->context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
 		return errno;
 
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&events_reported,
+					 sizeof(events_reported));
 
 	pthread_mutex_lock(&qp->mutex);
-	while (qp->events_completed != resp.events_reported)
+	while (qp->events_completed != events_reported)
 		pthread_cond_wait(&qp->cond, &qp->mutex);
 	pthread_mutex_unlock(&qp->mutex);
 

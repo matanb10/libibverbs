@@ -1197,8 +1197,8 @@ enum uverbs_create_qp_cmd_attr {
 };
 
 enum uverbs_destroy_qp_cmd_attr {
-	DESTROY_QP_RESP,
-	DESTROY_QP_QP,
+	DESTROY_QP_HANDLE,
+	DESTROY_QP_EVENTS_REPORTED,
 	DESTROY_QP_RESERVED
 };
 
@@ -1211,6 +1211,12 @@ enum uverbs_create_cq_cmd_attr {
 	CREATE_CQ_FLAGS,
 	CREATE_CQ_RESP_CQE,
 	CREATE_CQ_RESERVED,
+};
+
+enum uverbs_destroy_cq_cmd_attr {
+	DESTROY_CQ_HANDLE,
+	DESTROY_CQ_RESP,
+	DESTROY_CQ_RESERVED
 };
 
 enum uverbs_create_qp_xrc_tgt_cmd_attr {
@@ -1267,9 +1273,20 @@ enum uverbs_query_device {
 	QUERY_DEVICE_CAP_RESERVED,
 };
 
+enum uverbs_query_port {
+	QUERY_PORT_PORT_NUM,
+	QUERY_PORT_RESP,
+	QUERY_PORT_RESERVED
+};
+
 enum uverbs_alloc_pd {
 	ALLOC_PD_HANDLE,
 	ALLOC_PD_RESERVED,
+};
+
+enum uverbs_dealloc_pd {
+	DEALLOC_PD_HANDLE,
+	DEALLOC_PD_RESERVED,
 };
 
 enum uverbs_reg_mr {
@@ -1282,6 +1299,7 @@ enum uverbs_reg_mr {
 
 enum uverbs_dereg_mr {
 	DEREG_MR_HANDLE,
+	DEREG_MR_RESERVED
 };
 
 enum uverbs_actions_mr_ops {
@@ -1295,21 +1313,25 @@ enum uverbs_actions_comp_channel_ops {
 
 enum uverbs_actions_cq_ops {
 	UVERBS_CQ_CREATE,
+	UVERBS_CQ_DESTROY,
 };
 
 enum uverbs_actions_qp_ops {
 	UVERBS_QP_CREATE,
 	UVERBS_QP_CREATE_XRC_TGT,
 	UVERBS_QP_MODIFY,
+	UVERBS_QP_DESTROY
 };
 
 enum uverbs_actions_pd_ops {
-	UVERBS_PD_ALLOC
+	UVERBS_PD_ALLOC,
+	UVERBS_PD_DEALLOC,
 };
 
 enum uverbs_actions_device_ops {
 	UVERBS_DEVICE_ALLOC_CONTEXT,
 	UVERBS_DEVICE_QUERY,
+	UVERBS_DEVICE_PORT_QUERY,
 };
 
 struct ib_uverbs_ioctl_create_qp {
