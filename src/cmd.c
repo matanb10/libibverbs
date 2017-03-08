@@ -76,7 +76,7 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *leg
 		       attr - cmd.attrs);
 
 	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
-	printf("ret is %d\n", ret);
+	printf("ret is %lu\n", ret);
 	if (ret)
 		return errno;
 
@@ -1267,21 +1267,32 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 	return 0;
 }
 
-int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+struct ibv_ioctl_cmd_query_qp {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[QUERY_QP_RESERVED];
+} __attribute__((packed, aligned(4)));
+
+int ibv_cmd_query_qp(struct ibv_qp *qp, 
+		     struct ibv_qp_attr *attr,
 		     int attr_mask,
 		     struct ibv_qp_init_attr *init_attr,
 		     struct ibv_query_qp *cmd, size_t cmd_size)
 {
+	struct ibv_ioctl_cmd_query_qp iocmd;
+	struct ib_uverbs_attr         *cattr = iocmd.attrs;
 	struct ibv_query_qp_resp resp;
+	int ret;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
-	cmd->qp_handle = qp->handle;
-	cmd->attr_mask = attr_mask;
+	fill_attr_obj(cattr++, QUERY_QP_HANDLE, qp->handle);
+	fill_attr_in(cattr++, QUERY_QP_ATTR_MASK, sizeof(__u32), &attr_mask);
+	fill_attr_out(cattr++, QUERY_QP_RESP, sizeof(resp), &resp);
 
-	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
+	fill_ioctl_hdr(&iocmd.hdr, UVERBS_TYPE_QP, (void *)cattr - (void *)&iocmd,
+		       UVERBS_QP_QUERY, cattr - iocmd.attrs);
+
+	ret = ioctl(qp->context->cmd_fd, RDMA_VERBS_IOCTL, &iocmd);
+	if (ret)
 		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	attr->qkey                          = resp.qkey;
 	attr->rq_psn                        = resp.rq_psn;
@@ -1347,6 +1358,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	init_attr->sq_sig_all               = resp.sq_sig_all;
 
 	return 0;
+
 }
 
 struct ibv_ioctl_cmd_modify_qp {

@@ -1202,6 +1202,15 @@ enum uverbs_destroy_qp_cmd_attr {
 	DESTROY_QP_RESERVED
 };
 
+// this enum should also reside in 
+// kernel/include/rdma/uverbs_std_types.h
+enum uverbs_query_qp_cmd_attr_ids {
+	QUERY_QP_HANDLE,
+	QUERY_QP_ATTR_MASK,
+	QUERY_QP_RESP,
+	QUERY_QP_RESERVED
+};
+
 enum uverbs_create_cq_cmd_attr {
 	CREATE_CQ_HANDLE,
 	CREATE_CQ_CQE,
@@ -1320,7 +1329,8 @@ enum uverbs_actions_qp_ops {
 	UVERBS_QP_CREATE,
 	UVERBS_QP_CREATE_XRC_TGT,
 	UVERBS_QP_MODIFY,
-	UVERBS_QP_DESTROY
+	UVERBS_QP_DESTROY,
+	UVERBS_QP_QUERY, 
 };
 
 enum uverbs_actions_pd_ops {
