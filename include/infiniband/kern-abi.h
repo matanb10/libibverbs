@@ -1211,6 +1211,14 @@ enum uverbs_query_qp_cmd_attr_ids {
 	QUERY_QP_RESERVED
 };
 
+enum uverbs_rereg_mr_cmd_attr_ids {
+	REREG_MR_HANDLE,
+	REREG_MR_PD_HANDLE,
+	REREG_MR_CMD,
+	REREG_MR_RESP,
+	REREG_MR_RESERVED,
+};
+
 enum uverbs_create_cq_cmd_attr {
 	CREATE_CQ_HANDLE,
 	CREATE_CQ_CQE,
@@ -1314,6 +1322,7 @@ enum uverbs_dereg_mr {
 enum uverbs_actions_mr_ops {
 	UVERBS_MR_REG,
 	UVERBS_MR_DEREG,
+	UVERBS_MR_REREG,
 };
 
 enum uverbs_actions_comp_channel_ops {

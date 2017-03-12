@@ -441,6 +441,64 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return 0;
 }
 
+#define new_rereg_me
+#ifdef new_rereg_me
+struct ibv_ioctl_rereg_mr_cmd {
+	__u64 response;
+	__u32 mr_handle;
+	__u32 flags;
+	__u64 start;
+	__u64 length;
+	__u64 hca_va;
+	__u32 pd_handle;
+	__u32 access_flags;
+};
+
+struct ibv_ioctl_cmd_rereg_mr {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[REREG_MR_RESERVED];
+}__attribute__((packed, aligned(4)));
+
+int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+		     size_t length, uint64_t hca_va, int access,
+		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
+		     size_t cmd_sz, struct ibv_rereg_mr_resp *resp,
+		     size_t resp_sz)
+{
+	struct ibv_ioctl_cmd_rereg_mr iocmd;
+	struct ib_uverbs_attr         *cattr = iocmd.attrs;
+	struct ibv_ioctl_rereg_mr_cmd rereg_mr_cmd;
+
+	fill_attr_obj(cattr++, REREG_MR_HANDLE, mr->handle);
+
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		fill_attr_obj(cattr++, REREG_MR_PD_HANDLE, pd->handle);
+	else
+		fill_attr_obj(cattr++, REREG_MR_PD_HANDLE, 0);
+
+	fill_attr_in(cattr++, REREG_MR_CMD, sizeof(struct ibv_ioctl_rereg_mr_cmd), &rereg_mr_cmd);
+	fill_attr_out(cattr++, REREG_MR_RESP, sizeof(struct ibv_rereg_mr_resp), resp);
+
+	rereg_mr_cmd.start         =  (uintptr_t)addr;
+	rereg_mr_cmd.length        =  length;
+	rereg_mr_cmd.hca_va        =  hca_va;
+	rereg_mr_cmd.flags         =  flags;
+	rereg_mr_cmd.access_flags  =  access;
+
+	fill_ioctl_hdr(&iocmd.hdr, UVERBS_TYPE_MR, (void *)cattr - (void *)&iocmd,
+		       UVERBS_MR_REREG, cattr - iocmd.attrs);
+
+	if (ioctl(mr->context->cmd_fd, RDMA_VERBS_IOCTL, &iocmd))
+		return errno;
+
+	mr->lkey    = resp->lkey;
+	mr->rkey    = resp->rkey;
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		mr->context = pd->context;
+
+	return 0;
+}
+#else
 int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
@@ -469,6 +527,7 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 
 	return 0;
 }
+#endif
 
 struct ibv_ioctl_cmd_dereg_mr {
 	struct ib_uverbs_ioctl_hdr hdr;
