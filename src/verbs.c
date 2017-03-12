@@ -349,7 +349,7 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
-	channel->fd      = cmd.attrs.ptr_idr;
+	channel->fd      = cmd.attrs.data;
 	channel->refcnt  = 0;
 
 	return channel;

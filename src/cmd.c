@@ -313,7 +313,7 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	pd->handle  = cmd.attrs[0].ptr_idr;
+	pd->handle  = cmd.attrs[0].data;
 	pd->context = context;
 
 	return 0;
@@ -433,7 +433,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	mr->handle  = cmd.attrs[0].ptr_idr;
+	mr->handle  = cmd.attrs[0].data;
 	mr->lkey    = resp.lkey;
 	mr->rkey    = resp.rkey;
 	mr->context = pd->context;
@@ -577,7 +577,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	printf("%s:%d\n", __func__, __LINE__);
 	cq->context = context;
 	cq->cqe = _cqe_out;
-	cq->handle = cmd.attrs[0].ptr_idr;
+	cq->handle = cmd.attrs[0].data;
 	printf("%s:%d\n", __func__, __LINE__);
 
 	return 0;
@@ -1102,7 +1102,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 
 	create_qp_ioctl_handle_resp_common(context, qp, qp_attr,
 					   &resp,
-					   cmd.attrs[0].ptr_idr,
+					   cmd.attrs[0].data,
 					   vxrcd,
 					   vqp_sz);
 
@@ -1152,7 +1152,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 
 	create_qp_ioctl_handle_resp_common(context, qp, attr_ex,
 					   &resp,
-					   cmd.attrs[0].ptr_idr,
+					   cmd.attrs[0].data,
 					   vxrcd,
 					   vqp_sz);
 

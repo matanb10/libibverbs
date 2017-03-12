@@ -143,14 +143,14 @@ static inline void fill_ioctl_hdr(struct ib_uverbs_ioctl_hdr *cmd,
 {
 	cmd->length = length;
 	cmd->flags = 0;
-	cmd->driver_id = 0;
+	cmd->reserved = 0;
 	cmd->object_type = object_type;
 	cmd->action = action;
 	cmd->num_attrs = num_attr;
 }
 
 static inline void fill_attr(struct ib_uverbs_attr *attr, uint16_t attr_id,
-			     uint16_t len, void *ptr_idr)
+			     uint16_t len, void *data)
 {
 	attr->attr_id = attr_id;
 	attr->len = len;
@@ -159,20 +159,20 @@ static inline void fill_attr(struct ib_uverbs_attr *attr, uint16_t attr_id,
 }
 
 static inline void fill_attr_in(struct ib_uverbs_attr *attr, uint16_t attr_id,
-				uint16_t len, void *ptr_idr)
+				uint16_t len, void *data)
 {
-	fill_attr(attr, attr_id, len, ptr_idr);
+	fill_attr(attr, attr_id, len, data);
 	if (len <= sizeof(uint64_t))
-	    memcpy((void *)&attr->ptr_idr, ptr_idr, len);
+	    memcpy((void *)&attr->data, data, len);
 	else
-	    attr->ptr_idr = (uint64_t)ptr_idr;
+	    attr->data = (uint64_t)data;
 }
 
 static inline void fill_attr_out(struct ib_uverbs_attr *attr, uint16_t attr_id,
-				uint16_t len, void *ptr_idr)
+				uint16_t len, void *data)
 {
-	fill_attr(attr, attr_id, len, ptr_idr);
-	attr->ptr_idr = (uint64_t)ptr_idr;
+	fill_attr(attr, attr_id, len, data);
+	attr->data = (uint64_t)data;
 }
 
 static inline void fill_attr_obj(struct ib_uverbs_attr *attr, uint16_t attr_id,
@@ -181,6 +181,6 @@ static inline void fill_attr_obj(struct ib_uverbs_attr *attr, uint16_t attr_id,
 	attr->attr_id = attr_id;
 	attr->len = 0;
 	attr->reserved = 0;
-	attr->ptr_idr = idr;
+	attr->data = idr;
 }
 #endif /* IB_VERBS_H */
