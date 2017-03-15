@@ -344,12 +344,12 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 		       UVERBS_COMP_CHANNEL_CREATE,
 		       CREATE_COMP_CHANNEL_RESERVED);
 	if (ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd))
-		return errno;
+		return NULL;
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
-	channel->fd      = cmd.attrs.ptr_idr;
+	channel->fd      = cmd.attrs.data;
 	channel->refcnt  = 0;
 
 	return channel;

@@ -76,7 +76,7 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *leg
 		       attr - cmd.attrs);
 
 	ret = ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd);
-	printf("ret is %d\n", ret);
+	printf("ret is %lu\n", ret);
 	if (ret)
 		return errno;
 
@@ -163,7 +163,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 
 struct ibv_ioctl_cmd_query_device_ex {
 	struct ib_uverbs_ioctl_hdr hdr;
-	struct ib_uverbs_attr attrs[QUERY_DEVICE_CAP_RESERVED];
+	struct ib_uverbs_attr attrs[QUERY_DEVICE_RESERVED];
 } __attribute__((packed, aligned(4)));
 
 int ibv_cmd_query_device_ex(struct ibv_context *context,
@@ -313,7 +313,7 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	pd->handle  = cmd.attrs[0].ptr_idr;
+	pd->handle  = cmd.attrs[0].data;
 	pd->context = context;
 
 	return 0;
@@ -433,7 +433,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	mr->handle  = cmd.attrs[0].ptr_idr;
+	mr->handle  = cmd.attrs[0].data;
 	mr->lkey    = resp.lkey;
 	mr->rkey    = resp.rkey;
 	mr->context = pd->context;
@@ -441,6 +441,64 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return 0;
 }
 
+#define new_rereg_me
+#ifdef new_rereg_me
+struct ibv_ioctl_rereg_mr_cmd {
+	__u64 response;
+	__u32 mr_handle;
+	__u32 flags;
+	__u64 start;
+	__u64 length;
+	__u64 hca_va;
+	__u32 pd_handle;
+	__u32 access_flags;
+};
+
+struct ibv_ioctl_cmd_rereg_mr {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[REREG_MR_RESERVED];
+}__attribute__((packed, aligned(4)));
+
+int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+		     size_t length, uint64_t hca_va, int access,
+		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
+		     size_t cmd_sz, struct ibv_rereg_mr_resp *resp,
+		     size_t resp_sz)
+{
+	struct ibv_ioctl_cmd_rereg_mr iocmd;
+	struct ib_uverbs_attr         *cattr = iocmd.attrs;
+	struct ibv_ioctl_rereg_mr_cmd rereg_mr_cmd;
+
+	fill_attr_obj(cattr++, REREG_MR_HANDLE, mr->handle);
+
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		fill_attr_obj(cattr++, REREG_MR_PD_HANDLE, pd->handle);
+	else
+		fill_attr_obj(cattr++, REREG_MR_PD_HANDLE, 0);
+
+	fill_attr_in(cattr++, REREG_MR_CMD, sizeof(struct ibv_ioctl_rereg_mr_cmd), &rereg_mr_cmd);
+	fill_attr_out(cattr++, REREG_MR_RESP, sizeof(struct ibv_rereg_mr_resp), resp);
+
+	rereg_mr_cmd.start         =  (uintptr_t)addr;
+	rereg_mr_cmd.length        =  length;
+	rereg_mr_cmd.hca_va        =  hca_va;
+	rereg_mr_cmd.flags         =  flags;
+	rereg_mr_cmd.access_flags  =  access;
+
+	fill_ioctl_hdr(&iocmd.hdr, UVERBS_TYPE_MR, (void *)cattr - (void *)&iocmd,
+		       UVERBS_MR_REREG, cattr - iocmd.attrs);
+
+	if (ioctl(mr->context->cmd_fd, RDMA_VERBS_IOCTL, &iocmd))
+		return errno;
+
+	mr->lkey    = resp->lkey;
+	mr->rkey    = resp->rkey;
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		mr->context = pd->context;
+
+	return 0;
+}
+#else
 int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
@@ -469,6 +527,7 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 
 	return 0;
 }
+#endif
 
 struct ibv_ioctl_cmd_dereg_mr {
 	struct ib_uverbs_ioctl_hdr hdr;
@@ -577,7 +636,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	printf("%s:%d\n", __func__, __LINE__);
 	cq->context = context;
 	cq->cqe = _cqe_out;
-	cq->handle = cmd.attrs[0].ptr_idr;
+	cq->handle = cmd.attrs[0].data;
 	printf("%s:%d\n", __func__, __LINE__);
 
 	return 0;
@@ -1102,7 +1161,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 
 	create_qp_ioctl_handle_resp_common(context, qp, qp_attr,
 					   &resp,
-					   cmd.attrs[0].ptr_idr,
+					   cmd.attrs[0].data,
 					   vxrcd,
 					   vqp_sz);
 
@@ -1152,7 +1211,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 
 	create_qp_ioctl_handle_resp_common(context, qp, attr_ex,
 					   &resp,
-					   cmd.attrs[0].ptr_idr,
+					   cmd.attrs[0].data,
 					   vxrcd,
 					   vqp_sz);
 
@@ -1267,21 +1326,32 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 	return 0;
 }
 
-int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+struct ibv_ioctl_cmd_query_qp {
+	struct ib_uverbs_ioctl_hdr hdr;
+	struct ib_uverbs_attr attrs[QUERY_QP_RESERVED];
+} __attribute__((packed, aligned(4)));
+
+int ibv_cmd_query_qp(struct ibv_qp *qp, 
+		     struct ibv_qp_attr *attr,
 		     int attr_mask,
 		     struct ibv_qp_init_attr *init_attr,
 		     struct ibv_query_qp *cmd, size_t cmd_size)
 {
+	struct ibv_ioctl_cmd_query_qp iocmd;
+	struct ib_uverbs_attr         *cattr = iocmd.attrs;
 	struct ibv_query_qp_resp resp;
+	int ret;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
-	cmd->qp_handle = qp->handle;
-	cmd->attr_mask = attr_mask;
+	fill_attr_obj(cattr++, QUERY_QP_HANDLE, qp->handle);
+	fill_attr_in(cattr++, QUERY_QP_ATTR_MASK, sizeof(__u32), &attr_mask);
+	fill_attr_out(cattr++, QUERY_QP_RESP, sizeof(resp), &resp);
 
-	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
+	fill_ioctl_hdr(&iocmd.hdr, UVERBS_TYPE_QP, (void *)cattr - (void *)&iocmd,
+		       UVERBS_QP_QUERY, cattr - iocmd.attrs);
+
+	ret = ioctl(qp->context->cmd_fd, RDMA_VERBS_IOCTL, &iocmd);
+	if (ret)
 		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	attr->qkey                          = resp.qkey;
 	attr->rq_psn                        = resp.rq_psn;
@@ -1347,6 +1417,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	init_attr->sq_sig_all               = resp.sq_sig_all;
 
 	return 0;
+
 }
 
 struct ibv_ioctl_cmd_modify_qp {
