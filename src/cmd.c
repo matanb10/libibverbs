@@ -163,7 +163,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 
 struct ibv_ioctl_cmd_query_device_ex {
 	struct ib_uverbs_ioctl_hdr hdr;
-	struct ib_uverbs_attr attrs[QUERY_DEVICE_CAP_RESERVED];
+	struct ib_uverbs_attr attrs[QUERY_DEVICE_RESERVED];
 } __attribute__((packed, aligned(4)));
 
 int ibv_cmd_query_device_ex(struct ibv_context *context,
